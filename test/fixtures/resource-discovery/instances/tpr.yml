@@ -1,0 +1,6 @@
+---
+apiVersion: "api.prunable.com/v1"
+kind: "Gizmo"
+metadata:
+  name: "my-first-gizmo"
+status: "ok"

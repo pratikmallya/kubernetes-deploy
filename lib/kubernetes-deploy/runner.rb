@@ -5,8 +5,11 @@ require 'erb'
 require 'yaml'
 require 'shellwords'
 require 'tempfile'
+require 'kubernetes-deploy/discoverable_resource'
 require 'kubernetes-deploy/kubernetes_resource'
+
 %w(
+  genericresource
   cloudsql
   config_map
   deployment
@@ -23,6 +26,8 @@ require 'kubernetes-deploy/kubernetes_resource'
   service_account
   daemon_set
   resource_quota
+  customresourcedefinition
+  thirdpartyresource
 ).each do |subresource|
   require "kubernetes-deploy/kubernetes_resource/#{subresource}"
 end
@@ -71,6 +76,18 @@ module KubernetesDeploy
       apps/v1beta1/StatefulSet
       autoscaling/v1/HorizontalPodAutoscaler
     ).freeze
+
+    def prune_whitelist
+      resources = DiscoverableResource.all.select(&:prunable?)
+      identities = resources.map(&:identity)
+      PRUNE_WHITELIST + identities
+    end
+
+    def predeploy_sequence
+      resources = DiscoverableResource.all.select(&:predeploy?)
+      identities = resources.map(&:identity)
+      PREDEPLOY_SEQUENCE + identities
+    end
 
     NOT_FOUND_ERROR = 'NotFound'
 
@@ -169,11 +186,11 @@ module KubernetesDeploy
     end
 
     def deploy_has_priority_resources?(resources)
-      resources.any? { |r| PREDEPLOY_SEQUENCE.include?(r.type) }
+      resources.any? { |r| predeploy_sequence.include?(r.type) }
     end
 
     def predeploy_priority_resources(resource_list)
-      PREDEPLOY_SEQUENCE.each do |resource_type|
+      predeploy_sequence.each do |resource_type|
         matching_resources = resource_list.select { |r| r.type == resource_type }
         next if matching_resources.empty?
         deploy_resources(matching_resources, verify: true, record_summary: false)
@@ -201,13 +218,15 @@ module KubernetesDeploy
 
     def discover_resources
       resources = []
+      # Explicitly discovering will discard all cached resources.
+      DiscoverableResource.discover(context: @context, logger: @logger)
       @logger.info("Discovering templates:")
 
       Dir.foreach(@template_dir) do |filename|
         next unless filename.end_with?(".yml.erb", ".yml", ".yaml", ".yaml.erb")
 
         split_templates(filename) do |r_def|
-          r = KubernetesResource.build(namespace: @namespace, context: @context, logger: @logger, definition: r_def)
+          r = DiscoverableResource.build(namespace: @namespace, context: @context, logger: @logger, definition: r_def)
           resources << r
           @logger.info "  - #{r.id}"
         end
@@ -371,7 +390,7 @@ module KubernetesDeploy
 
       if prune
         command.push("--prune", "--all")
-        PRUNE_WHITELIST.each { |type| command.push("--prune-whitelist=#{type}") }
+        prune_whitelist.each { |type| command.push("--prune-whitelist=#{type}") }
       end
 
       out, err, st = kubectl.run(*command, log_failure: false)

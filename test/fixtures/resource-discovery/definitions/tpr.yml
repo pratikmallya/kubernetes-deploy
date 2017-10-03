@@ -1,0 +1,17 @@
+---
+apiVersion: extensions/v1beta1
+description: Implements a dummy prunable resource
+kind: ThirdPartyResource
+metadata:
+  name: gizmo.api.prunable.com
+  annotations:
+    kubernetes-deploy.shopify.io/prunable: "true"
+    kubernetes-deploy.shopify.io/predeploy: "true"
+    kubernetes-deploy.shopify.io/timeout: "PT9M"
+    kubernetes-deploy.shopify.io/status-field: "status"
+    kubernetes-deploy.shopify.io/status-success: "ok"
+  labels:
+    k8s-deploy/prunable: "true"
+versions:
+- name: v1
+- name: v2

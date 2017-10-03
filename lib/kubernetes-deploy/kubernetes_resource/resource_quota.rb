@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 module KubernetesDeploy
-  class ResourceQuota < KubernetesResource
+  class ResourceQuota < GenericResource
     TIMEOUT = 30.seconds
 
     def sync
@@ -16,18 +16,6 @@ module KubernetesDeploy
 
     def deploy_succeeded?
       @rollout_data.dig("spec", "hard") == @rollout_data.dig("status", "hard")
-    end
-
-    def deploy_failed?
-      false
-    end
-
-    def timeout_message
-      UNUSUAL_FAILURE_MESSAGE
-    end
-
-    def exists?
-      @found
     end
   end
 end

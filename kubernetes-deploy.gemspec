@@ -24,11 +24,12 @@ Gem::Specification.new do |spec|
 
   spec.required_ruby_version = '>= 2.3.0'
   spec.add_dependency "activesupport", ">= 4.2"
-  spec.add_dependency "kubeclient", "~> 2.4"
+  spec.add_dependency "kubeclient", "~> 2.5.1"
   spec.add_dependency "googleauth", ">= 0.5"
   spec.add_dependency "ejson", "1.0.1"
   spec.add_dependency "colorize", "~> 0.8"
   spec.add_dependency "statsd-instrument", "~> 2.1"
+  spec.add_dependency "jsonpath", "0.8.8"
 
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "rake", "~> 10.0"
