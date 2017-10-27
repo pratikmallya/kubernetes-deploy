@@ -10,6 +10,7 @@ module KubernetesDeploy
 
     class << self
       attr_accessor :version, :group, :type
+      attr_reader :timeout
     end
 
     STATUS_FIELD_ANNOTATION = 'kubernetes-deploy.shopify.io/status-field'
@@ -31,18 +32,11 @@ module KubernetesDeploy
     end
 
     def self.prunable?
-      return @prunable if defined?(@prunable)
-      false
+      @prunable
     end
 
     def self.predeploy?
-      return @predeploy if defined?(@predeploy)
-      false
-    end
-
-    def self.timeout
-      return @timeout if defined?(@timeout)
-      super
+      @predeploy
     end
 
     def self.identity
