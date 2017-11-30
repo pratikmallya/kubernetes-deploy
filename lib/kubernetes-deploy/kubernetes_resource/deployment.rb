@@ -16,7 +16,7 @@ module KubernetesDeploy
         @status = @rollout_data.map { |state_replicas, num| "#{num} #{state_replicas.chop.pluralize(num)}" }.join(", ")
         conditions = @deployment_data.fetch("status", {}).fetch("conditions", [])
         @progress_condition = conditions.find { |condition| condition['type'] == 'Progressing' }
-        @progress_deadline = deployment_data['spec']['progressDeadlineSeconds']
+        @progress_deadline = @deployment_data['spec']['progressDeadlineSeconds']
       else # reset
         @latest_rs = nil
         @rollout_data = { "replicas" => 0 }
@@ -129,7 +129,7 @@ module KubernetesDeploy
       if min_required_rollout =~ /%/
         desired *= (100 - min_required_rollout.to_i) / 100.0
       else
-        desired -= min_required_rollout.to_i
+        desired = min_required_rollout.to_i
       end
 
       desired.to_i
