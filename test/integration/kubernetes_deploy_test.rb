@@ -636,13 +636,22 @@ invalid type for io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta.labels:",
   end
 
   def test_can_deploy_deployment_with_partial_rollout_success
-    result = deploy_fixtures("slow-cloud", subset: ["configmap-data.yml", "web.yml.erb"])
-    assert_deploy_success(result)
-    pods = kubeclient.get_pods(namespace: @namespace)
+    original_timeout = KubernetesDeploy::Deployment::TIMEOUT
+    begin
+      KubernetesDeploy::Deployment.const_set('TIMEOUT', 10.seconds)
+      result = deploy_fixtures("slow-cloud", subset: ["configmap-data.yml", "web.yml.erb"])
+      assert_deploy_success(result)
 
-    assert_equal 2, pods.length, "Pods were running from zero-replica deployment"
+      result = deploy_fixtures("slow-cloud", subset: ["configmap-data.yml", "web.yml.erb"]) do |fixtures|
+        web = fixtures["web.yml.erb"]["Deployment"].first
+        web['spec']['template']['spec']['containers'].first.merge!('readinessProbe' => { 'exec' => { 'command' => %w[sleep 4] } })
+      end
 
-    assert_logs_match_all([%r{Deployment/web\s+3 replicas}])
+      assert_deploy_success(result)
+      assert_logs_match_all([%r{Deployment\/web\s+[34] replicas, 3 updatedReplicas, 2 availableReplicas, [12] unavailableReplica}])
+    ensure
+      KubernetesDeploy::Deployment.const_set('TIMEOUT', original_timeout)
+    end
   end
 
   def test_deploy_aborts_immediately_if_metadata_name_missing

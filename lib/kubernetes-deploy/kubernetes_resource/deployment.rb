@@ -41,18 +41,18 @@ module KubernetesDeploy
     def deploy_succeeded?
       return false unless @latest_rs.present?
 
-      if min_required_rollout.blank?
+      if min_unavailable_rollout.blank?
         @latest_rs.deploy_succeeded? &&
         @latest_rs.desired_replicas == @desired_replicas && # latest RS fully scaled up
         @rollout_data["updatedReplicas"].to_i == @desired_replicas &&
         @rollout_data["updatedReplicas"].to_i == @rollout_data["availableReplicas"].to_i
       else
-        minimum_needed = minimum_updated_replicas_to_succeeded
+        minimum_needed = minimum_unavailable_replicas_to_succeeded
 
         running_rs.size <= 2 &&
         @latest_rs.desired_replicas > minimum_needed &&
-        @rollout_data["updatedReplicas"].to_i > minimum_needed &&
-        @rollout_data["availableReplicas"].to_i > minimum_needed
+        @rollout_data["updatedReplicas"].to_i >= minimum_needed &&
+        @rollout_data["availableReplicas"].to_i >= minimum_needed
       end
     end
 
@@ -81,7 +81,7 @@ module KubernetesDeploy
 
     def deploy_timed_out?
       # Do not use the hard timeout if progress deadline is set
-      @progress_condition.present? ? deploy_failing_to_progress? : super
+      super #@progress_condition.present? ? deploy_failing_to_progress? : super
     end
 
     def exists?
@@ -119,17 +119,17 @@ module KubernetesDeploy
       end
     end
 
-    def min_required_rollout
-      @deployment_data['metadata']['annotations']['kubernetes-deploy.shopify.io/min-required-rollout']
+    def min_unavailable_rollout
+      @definition['metadata']['annotations']['kubernetes-deploy.shopify.io/min-unavailable-rollout']
     end
 
-    def minimum_updated_replicas_to_succeeded
+    def minimum_unavailable_replicas_to_succeeded
       desired = @desired_replicas
 
-      if min_required_rollout =~ /%/
-        desired *= (100 - min_required_rollout.to_i) / 100.0
+      if min_unavailable_rollout =~ /%/
+        desired *= (100 - min_unavailable_rollout.to_i) / 100.0
       else
-        desired = min_required_rollout.to_i
+        desired = min_unavailable_rollout.to_i
       end
 
       desired.to_i

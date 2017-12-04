@@ -4,10 +4,10 @@ metadata:
   name: web
   labels:
     name: web
-    app: hello-cloud
+    app: slow-cloud
 spec:
   rules:
-  - host: hello-cloud.example.com
+  - host: slow-cloud.example.com
     http:
       paths:
       - backend:
@@ -20,7 +20,7 @@ metadata:
   name: web
   labels:
     name: web
-    app: hello-cloud
+    app: slow-cloud
 spec:
   ports:
   - port: 80
@@ -28,7 +28,7 @@ spec:
     targetPort: http
   selector:
     name: web
-    app: hello-cloud
+    app: slow-cloud
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -36,15 +36,19 @@ metadata:
   name: web
   annotations:
     shipit.shopify.io/restart: "true"
-    kubernetes-deploy.shopify.io/min-required-rollout: 2
+    kubernetes-deploy.shopify.io/min-unavailable-rollout: 2
 spec:
   replicas: 3
-  progressDeadlineSeconds: 20
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
   template:
     metadata:
       labels:
         name: web
-        app: hello-cloud
+        app: slow-cloud
     spec:
       containers:
       - name: app
@@ -52,12 +56,6 @@ spec:
         ports:
         - containerPort: 80
           name: http
-        lifecycle:
-          postStart:
-            exec:
-              command:
-                - sleep
-                - '3'
         env:
         - name: GITHUB_REV
           value: <%= current_sha %>
