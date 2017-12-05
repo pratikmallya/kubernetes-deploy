@@ -40,20 +40,12 @@ module KubernetesDeploy
 
     def deploy_succeeded?
       return false unless @latest_rs.present?
+      return partial_deployment_success unless min_unavailable_rollout.blank?
 
-      if min_unavailable_rollout.blank?
-        @latest_rs.deploy_succeeded? &&
-        @latest_rs.desired_replicas == @desired_replicas && # latest RS fully scaled up
-        @rollout_data["updatedReplicas"].to_i == @desired_replicas &&
-        @rollout_data["updatedReplicas"].to_i == @rollout_data["availableReplicas"].to_i
-      else
-        minimum_needed = minimum_unavailable_replicas_to_succeeded
-
-        running_rs.size <= 2 &&
-        @latest_rs.desired_replicas > minimum_needed &&
-        @rollout_data["updatedReplicas"].to_i >= minimum_needed &&
-        @rollout_data["availableReplicas"].to_i >= minimum_needed
-      end
+      @latest_rs.deploy_succeeded? &&
+      @latest_rs.desired_replicas == @desired_replicas && # latest RS fully scaled up
+      @rollout_data["updatedReplicas"].to_i == @desired_replicas &&
+      @rollout_data["updatedReplicas"].to_i == @rollout_data["availableReplicas"].to_i
     end
 
     def deploy_failed?
@@ -81,7 +73,11 @@ module KubernetesDeploy
 
     def deploy_timed_out?
       # Do not use the hard timeout if progress deadline is set
-      super #@progress_condition.present? ? deploy_failing_to_progress? : super
+      if @definition['spec']['progressDeadlineSeconds'].present? && @progress_condition.present?
+        deploy_failing_to_progress?
+      else
+        super
+      end
     end
 
     def exists?
@@ -120,7 +116,7 @@ module KubernetesDeploy
     end
 
     def min_unavailable_rollout
-      @definition['metadata']['annotations']['kubernetes-deploy.shopify.io/min-unavailable-rollout']
+      @definition.dig('metadata', 'annotations', 'kubernetes-deploy.shopify.io/min-unavailable-rollout')
     end
 
     def minimum_unavailable_replicas_to_succeeded
@@ -133,6 +129,15 @@ module KubernetesDeploy
       end
 
       desired.to_i
+    end
+
+    def partial_deployment_success
+      minimum_needed = minimum_unavailable_replicas_to_succeeded
+
+      running_rs.size <= 2 &&
+      @latest_rs.desired_replicas > minimum_needed &&
+      @rollout_data["updatedReplicas"].to_i >= minimum_needed &&
+      @rollout_data["availableReplicas"].to_i >= minimum_needed
     end
 
     def find_latest_rs
